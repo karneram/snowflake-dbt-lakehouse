@@ -1,0 +1,41 @@
+name: 'lakehouse'
+version: '1.0.0'
+config-version: 2
+
+profile: 'lakehouse'
+
+model-paths:   ["models"]
+test-paths:    ["tests"]
+macro-paths:   ["macros"]
+snapshot-paths:["snapshots"]
+
+target-path:   "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  lakehouse:
+    bronze:
+      +schema:       bronze
+      +materialized: table
+      +tags:         ['bronze', 'raw']
+
+    silver:
+      +schema:       silver
+      +materialized: incremental
+      +incremental_strategy: merge
+      +on_schema_change: append_new_columns
+      +tags:         ['silver', 'cleansed']
+
+    gold:
+      +schema:       gold
+      +materialized: table
+      +tags:         ['gold', 'business_ready']
+      +post-hook:    "CALL LAKEHOUSE.GOVERNANCE.LOG_TABLE_ACCESS('{{ this }}', 'REFRESH', (SELECT COUNT(*) FROM {{ this }}))"
+
+vars:
+  # Lookback window for incremental loads (days)
+  incremental_lookback_days: 3
+  # MDM confidence threshold for golden record matching
+  mdm_match_threshold: 0.85
+  # Cortex AI model for quality classification
+  cortex_model: 'snowflake-arctic'
